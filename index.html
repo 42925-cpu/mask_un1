@@ -291,7 +291,13 @@
                 badge.className = "flex items-center gap-2 text-xs font-bold text-red-500 bg-red-50 px-4 py-2 rounded-full border-2 border-red-200";
                 dot.classList.add("bg-red-400");
             }
-        }
+        }// สั่งให้เปิดกล้องอัตโนมัติทันทีเมื่อโหลดหน้าเว็บ (DOM) เสร็จสิ้น
+document.addEventListener("DOMContentLoaded", () => {
+    // หน่วงเวลาเล็กน้อยเพื่อให้เบราว์เซอร์พร้อมทำงานอย่างสมบูรณ์
+    setTimeout(() => {
+        startCamera();
+    }, 500);
+});
     </script>
 </body>
 </html>
