@@ -10,13 +10,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', 'Prompt', sans-serif; }
-        #webcam-container canvas, #image-preview {
+        /* กำหนดขนาดและ Mirror หน้ากล้อง */
+        #webcam-video, #image-preview {
             border-radius: 1rem;
             width: 100% !important;
             height: auto !important;
             max-width: 440px;
+            aspect-ratio: 4/3;
+            object-fit: cover;
         }
-        #webcam-container canvas { transform: scaleX(-1); }
+        #webcam-video { transform: scaleX(-1); }
     </style>
 </head>
 <body class="bg-gray-900 min-h-screen text-gray-100 flex flex-col justify-between">
@@ -43,9 +46,10 @@
                 <p class="text-sm text-gray-400 mb-6">เลือกใช้งานผ่านกล้องเว็บแคม หรืออัปโหลดไฟล์รูปภาพโดยตรง</p>
                 
                 <!-- Display Area -->
-                <div class="relative w-full aspect-video bg-gray-950 rounded-2xl border border-gray-800 flex flex-col items-center justify-center overflow-hidden shadow-inner p-2">
-                    <div id="webcam-container" class="w-full flex justify-center"></div>
-                    <img id="image-preview" class="hidden object-contain max-h-[330px]" alt="Preview">
+                <div class="relative w-full aspect-video bg-gray-950 rounded-2xl border border-gray-800 flex flex-col items-center justify-center overflow-hidden shadow-inner p-2 min-h-[260px]">
+                    <!-- ใช้ HTML5 Video แท้ๆ เพื่อความชัวร์ในการเปิดกล้องบนทุก Browser -->
+                    <video id="webcam-video" autoplay playsinline muted class="hidden"></video>
+                    <img id="image-preview" class="hidden object-contain" alt="Preview">
                     
                     <div id="camera-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-gray-950">
                         <p class="text-sm text-gray-400">ยังไม่มีการเปิดระบบตรวจจับ</p>
@@ -87,17 +91,20 @@
         <div>Powered by TensorFlow.js & Teachable Machine</div>
     </footer>
 
+    <!-- โหลด Library ที่จำเป็น -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
     <script type="text/javascript">
-        // สำคัญมาก: เปลี่ยนลิงก์ URL นี้ให้เป็นโฟลเดอร์โมเดลที่แท้จริงของคุณเอง
+        // ลิงก์โมเดลเดโม (เปลี่ยนเป็นของคุณได้)
         const MODEL_URL = "https://teachablemachine.withgoogle.com/models/jgMwAvjfo/";
 
-        let model, webcam, labelContainer, maxPredictions;
+        let model, maxPredictions;
         let isCameraRunning = false;
+        let videoElement = document.getElementById("webcam-video");
+        let localStream = null;
 
-        // 1. ฟังก์ชันโหลดโมเดลตัวกลาง (จะถูกเรียกอัตโนมัติเมื่อกดใช้อินพุต)
+        // ฟังก์ชันโหลดโมเดล AI
         async function loadModel() {
             if (model) return;
             updateStatus("loading", "กำลังโหลดโมเดล AI...");
@@ -106,57 +113,51 @@
                 maxPredictions = model.getTotalClasses();
                 updateStatus("ready", "โมเดลโหลดเสร็จสิ้น");
             } catch (e) {
-                updateStatus("error", "โหลดโมเดลไม่สำเร็จ ตรวจสอบลิงก์ URL");
+                updateStatus("error", "โหลดโมเดลไม่สำเร็จ");
                 throw e;
             }
         }
 
-        // 2. ฟังก์ชันเริ่มทำงานทางกล้อง (Webcam)
+        // ฟังก์ชันเปิดกล้อง (ปรับปรุงระบบเรียกสิทธิ์ใหม่)
         async function startCamera() {
-            const startBtn = document.getElementById("start-btn");
             if (isCameraRunning) return;
 
             try {
-                // เคลียร์โหมดอัปโหลดรูปภาพถ้าค้างอยู่
+                // เคลียร์โหมดรูปภาพ
                 document.getElementById("image-preview").classList.add("hidden");
-
                 await loadModel();
+
+                // สั่งเปิดกล้องด้วย Native Web API ของบราวเซอร์ (เสถียรที่สุด)
+                const constraints = { video: { width: 640, height: 480, facingMode: "user" }, audio: false };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
                 
-                // ตรวจสอบเบื้องต้นว่าสิทธิ์การขอเข้ากล้องในบราวเซอร์ถูกบล็อกหรือไม่
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error("Browser ของคุณไม่รองรับการเข้าถึงกล้อง หรือไม่ได้ใช้งานผ่าน HTTPS");
-                }
-
-                webcam = new tmImage.Webcam(440, 330, true);
-                await webcam.setup(); // ตรงนี้จะเด้งป๊อปอัพขอสิทธิ์กล้อง
-                await webcam.play();
-
+                videoElement.srcObject = localStream;
+                videoElement.classList.remove("hidden");
                 document.getElementById("camera-placeholder").classList.add("hidden");
-                const container = document.getElementById("webcam-container");
-                container.innerHTML = "";
-                container.appendChild(webcam.canvas);
 
                 setupUI();
                 isCameraRunning = true;
                 updateStatus("active", "กล้องกำลังทำงาน");
+                
+                // เริ่มลูปทำนายภาพจากวิดีโอ
                 window.requestAnimationFrame(loop);
             } catch (error) {
-                console.error(error);
-                alert("เปิดกล้องไม่ได้! กรุณาเช็คว่า:\n1. ได้กด 'อนุญาต (Allow)' ให้เว็บใช้กล้องหรือไม่\n2. มีแอปอื่น (เช่น Zoom, Line) เปิดกล้องค้างไว้ไหม\n3. ลิงก์ MODEL_URL ในโค้ดถูกต้องหรือไม่");
+                console.error("Camera Error:", error);
+                alert("ไม่สามารถเปิดกล้องได้! กรุณาตรวจสอบว่า:\n1. ได้กด 'อนุญาต' สิทธิ์เข้าถึงกล้องหรือไม่\n2. ตัวไฟล์ถูกบล็อกระบบความปลอดภัย (แนะนำให้เปิดผ่าน VS Code Live Server หรืออัปขึ้นเว็บจริง)");
                 updateStatus("error", "กล้องถูกปฏิเสธการเข้าถึง");
             }
         }
 
-        // 3. ฟังก์ชันกรณีเลือกอัปโหลดรูปภาพ (ไม่ใช้กล้อง)
+        // ฟังก์ชันกรณีเลือกอัปโหลดรูปภาพ
         async function handleImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            // หยุดกล้องถ้ามันทำงานอยู่
-            if (isCameraRunning && webcam) {
-                await webcam.stop();
+            // ปิดกล้องถ้าเปิดค้างไว้
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
                 isCameraRunning = false;
-                document.getElementById("webcam-container").innerHTML = "";
+                videoElement.classList.add("hidden");
             }
 
             try {
@@ -170,7 +171,6 @@
                 setupUI();
                 updateStatus("active", "กำลังวิเคราะห์ไฟล์ภาพ");
 
-                // รอให้ภาพโหลดเสร็จในหน่วยความจำก่อนสั่ง AI ทำนาย
                 imgPreview.onload = async function() {
                     const prediction = await model.predict(imgPreview);
                     renderPredictions(prediction);
@@ -180,17 +180,19 @@
             }
         }
 
+        // วนลูปทำนายผลแบบ Real-time จากหน้ากล้อง
         async function loop() {
             if (!isCameraRunning) return;
-            webcam.update();
-            const prediction = await model.predict(webcam.canvas);
-            renderPredictions(prediction);
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                const prediction = await model.predict(videoElement);
+                renderPredictions(prediction);
+            }
             window.requestAnimationFrame(loop);
         }
 
-        // สร้างแถบแสดงผลคลาส
+        // สร้างแถบ UI แสดงผล
         function setupUI() {
-            labelContainer = document.getElementById("label-container");
+            const labelContainer = document.getElementById("label-container");
             labelContainer.innerHTML = "";
             for (let i = 0; i < maxPredictions; i++) {
                 const row = document.createElement("div");
