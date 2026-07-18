@@ -3,176 +3,293 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ชิกกี้ AI - Teachable Machine</title>
-    <!-- นำเข้า Tailwind CSS สำหรับจัดแต่งความน่ารัก -->
+    <title>คิ้วท์ AI - Vision Analytics</title>
+    <!-- นำเข้า Tailwind CSS สำหรับการจัดการ Layout และสีสันแบบพาสเทล -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- นำเข้า Google Fonts สไตล์มนๆ สุดคิ้วท์ -->
+    <!-- นำเข้า Google Fonts สไตล์กลมมนนุ่มนวล -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Mitr:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Fredoka', 'Mitr', sans-serif;
+        body { font-family: 'Fredoka', 'Mitr', sans-serif; }
+        /* กำหนดขนาดและ Mirror หน้ากล้องแบบโค้งมนน่ารัก */
+        #webcam-video, #image-preview {
+            border-radius: 1.5rem;
+            width: 100% !important;
+            height: auto !important;
+            max-width: 440px;
+            aspect-ratio: 4/3;
+            object-fit: cover;
+            border: 4px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(255, 182, 193, 0.2);
         }
+        #webcam-video { transform: scaleX(-1); }
     </style>
 </head>
-<body class="bg-[#FFF0F5] text-slate-700 min-h-screen flex items-center justify-center p-4 md:p-8">
+<body class="bg-[#FFF9F2] min-h-screen text-slate-700 flex flex-col justify-between">
 
-    <!-- การ์ดหลักดีไซน์โค้งมน นุ่มฟู -->
-    <div class="max-w-4xl w-full bg-white rounded-3xl shadow-[0_16px_32px_rgba(255,182,193,0.4)] border-4 border-[#FFD1DC] overflow-hidden">
-        
-        <!-- Header โดนใจสายหวาน -->
-        <div class="p-6 bg-gradient-to-r from-[#FFC0CB] via-[#FFD1DC] to-[#E8F0FE] flex flex-col sm:flex-row justify-between items-center gap-4 border-b-4 border-[#FFD1DC]">
-            <div class="text-center sm:text-left">
-                <h1 class="text-2xl font-bold tracking-wide text-[#FF69B4] flex items-center justify-center sm:justify-start gap-2">
-                    <span>🌸 Teachable Machine Image Model 🌸</span>
-                </h1>
-                <p class="text-[#DB7093] text-sm mt-1 font-medium">น้อง AI จะสแกนกล้องและรายงานผลทุกๆ 3 วินาทีนะฮะป๋ม 🎀</p>
+    <!-- Navbar สไตล์ Y2K คาเฟ่ -->
+    <nav class="border-b-4 border-[#FFEBD8] bg-white/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-[#FF8E8E] flex items-center justify-center font-bold text-white shadow-md text-lg">🤖</div>
+                <span class="font-bold text-lg tracking-wide text-[#FF7B7B]">Vision Analytics Cute v.2</span>
             </div>
-            <button type="button" id="start-btn" onclick="init()" class="cursor-pointer bg-[#FF69B4] hover:bg-[#FF1493] text-white font-bold px-8 py-3 rounded-2xl shadow-[0_4px_12px_rgba(255,105,180,0.4)] active:scale-95 transition-all duration-200 flex items-center gap-2 border-b-4 border-[#C71585]">
-                <span>💖 Start !</span>
-            </button>
+            <div id="status-badge" class="flex items-center gap-2 text-xs font-bold text-[#A27B7B] bg-[#FFF5E4] px-4 py-2 rounded-full border-2 border-[#FFEBD8]">
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                <span id="status-text">พร้อมโหลดโมเดลแล้วน้า</span>
+            </div>
         </div>
+    </nav>
 
-        <!-- Main Content -->
-        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 bg-[#FFFDFE]">
+    <!-- Main Container โค้งมนนุ่มนวล -->
+    <main class="max-w-5xl w-full mx-auto px-4 py-8 flex-grow flex flex-col justify-center">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-stretch">
             
-            <!-- Left: ช่องแสดงกล้องเว็บแคม -->
-            <div class="flex flex-col items-center justify-center bg-[#E8F0FE] rounded-2xl p-6 border-2 border-dashed border-[#B0C4DE] min-h-[300px]">
-                <div class="text-sm font-semibold text-[#4682B4] mb-3 flex items-center gap-2 bg-white px-4 py-1.5 rounded-full shadow-sm">
-                    <span id="status-dot" class="w-3 h-3 rounded-full bg-slate-300 animate-ping"></span>
-                    <span id="status-text">รอเปิดกล้องอยู่นะแก้มอ้วน 🛸</span>
-                </div>
-                
-                <!-- กล่องเฟรมกล้อง -->
-                <div id="webcam-container" class="relative rounded-2xl overflow-hidden border-4 border-white shadow-md bg-[#F0F8FF] aspect-video w-full flex items-center justify-center max-w-[340px]">
-                    <div id="webcam-placeholder" class="text-[#B0C4DE] text-center p-6">
-                        <span class="text-4xl block mb-2">🐰</span>
-                        <p class="text-sm font-medium">กดปุ่มสีชมพูหวานแหวว<br>ด้านบนเพื่อเริ่มเลย!</p>
+            <!-- Left Side: Input Panel -->
+            <div class="md:col-span-6 bg-white border-4 border-[#FFEBD8] rounded-3xl p-6 shadow-[0_12px_24px_rgba(237,203,176,0.15)] flex flex-col justify-between">
+                <div>
+                    <h2 class="text-xl font-bold text-[#FF8E8E] mb-1 flex items-center gap-1.5">📸 แหล่งข้อมูลภาพ</h2>
+                    <p class="text-xs font-medium text-[#CDAFA0] mb-5">เลือกเปิดกล้องดุ๊กดิ๊ก หรืออัปโหลดภาพน่ารักๆ เข้ามาได้เลย</p>
+                    
+                    <!-- Display Area -->
+                    <div class="relative w-full aspect-video bg-[#FAF4EE] rounded-2xl border-2 border-dashed border-[#FFD1D1] flex flex-col items-center justify-center overflow-hidden p-2 min-h-[260px]">
+                        <video id="webcam-video" autoplay playsinline muted class="hidden"></video>
+                        <img id="image-preview" class="hidden object-contain" alt="Preview">
+                        
+                        <div id="camera-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-[#FFFBF7]">
+                            <span class="text-4xl mb-2">🐾</span>
+                            <p class="text-sm font-bold text-[#CDAFA0]">ยังไม่ได้เปิดระบบตรวจจับจ้า</p>
+                            <p class="text-xs text-[#DEC3B3] mt-1">กดปุ่มสีชมพูหรือปุ่มชานมด้านล่างได้เลยนะ</p>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                    <button id="start-btn" onclick="startCamera()" class="bg-[#FF8E8E] hover:bg-[#FF7B7B] text-white font-bold py-3.5 px-4 rounded-2xl shadow-md hover:shadow-lg transition active:scale-95 cursor-pointer flex items-center justify-center gap-2 text-sm border-b-4 border-[#D96868]">
+                        👉 เปิดใช้งานกล้องเลย!
+                    </button>
+                    
+                    <label class="bg-[#FFF5E4] hover:bg-[#FFEBD8] border-2 border-[#FFEBD8] text-[#A27B7B] font-bold py-3.5 px-4 rounded-2xl shadow-sm transition active:scale-95 cursor-pointer flex items-center justify-center gap-2 text-sm text-center border-b-4 border-[#E6C5A8]">
+                        <span>📂 อัปโหลดรูปภาพ</span>
+                        <input type="file" id="image-loader" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    </label>
                 </div>
             </div>
 
-            <!-- Right: ช่องแสดงผลลัพธ์ของโมเดล -->
-            <div class="flex flex-col justify-start bg-white rounded-2xl p-5 border-2 border-[#FFD1DC]">
-                <h2 class="text-lg font-bold text-[#FF69B4] mb-4 flex items-center gap-2 border-b-2 border-dashed border-[#FFD1DC] pb-2">
-                    <span>🍭 แท่นรายงานผลของน้อง AI</span>
-                </h2>
-                
-                <!-- คอนเทนเนอร์แสดงความแม่นยำ -->
-                <div id="label-container" class="space-y-4">
-                    <div class="text-center py-8 text-[#DB7093] italic text-sm">
-                        <span>ส่งยิ้มให้กล้อง แล้วรอผลแป๊บนึงน้า ✨</span>
+            <!-- Right Side: Results -->
+            <div class="md:col-span-6 flex flex-col h-full">
+                <div class="bg-white border-4 border-[#FFEBD8] rounded-3xl p-6 shadow-[0_12px_24px_rgba(237,203,176,0.15)] h-full flex flex-col">
+                    <h2 class="text-xl font-bold text-[#FF8E8E] mb-1 flex items-center gap-1.5">📊 ผลการจำแนกคลาส</h2>
+                    <p class="text-xs font-medium text-[#CDAFA0] mb-5">คะแนนความมั่นใจจากน้อง AI (อัปเดตทุกๆ 3 วินาที)</p>
+                    
+                    <div id="label-container" class="space-y-4 flex-grow flex flex-col justify-center py-4">
+                        <div id="results-skeleton" class="text-center py-8 text-[#CDAFA0] text-sm italic">
+                            <span class="text-3xl block mb-2">🍭</span>
+                            <p>ตื่นเต้นจัง... รอผลลัพธ์ประมวลผลอยู่น้า</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
         </div>
-    </div>
+    </main>
 
-    <!-- Scripts จากต้นฉบับ -->
+    <!-- Footer คิ้วท์ๆ -->
+    <footer class="border-t-2 border-[#FFEBD8]/60 bg-[#FFFDFB] py-4 text-center text-xs font-medium text-[#CDAFA0]">
+        <div>Powered by TensorFlow.js & Teachable Machine 🍧</div>
+    </footer>
+
+    <!-- โหลด Library ที่จำเป็น -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-    
+
     <script type="text/javascript">
-        // ลิงก์ URL โมเดลตัวใหม่ที่คุณส่งมา
-        const URL = "https://teachablemachine.withgoogle.com/models/jgMwAvjfo/";[cite: 2]
-        let model, webcam, labelContainer, maxPredictions;
+        // ใช้ลิงก์โมเดลเดโมของคุณ
+        const MODEL_URL = "https://teachablemachine.withgoogle.com/models/jgMwAvjfo/";[cite: 3]
 
-        async function init() {[cite: 2]
-            document.getElementById("start-btn").disabled = true;
-            document.getElementById("status-text").innerText = "กำลังปลุกน้อง AI... รอสักครู่ 🦄";
-            
-            const modelURL = URL + "model.json";[cite: 2]
-            const metadataURL = URL + "metadata.json";[cite: 2]
+        let model, maxPredictions;[cite: 3]
+        let isCameraRunning = false;[cite: 3]
+        let videoElement = document.getElementById("webcam-video");[cite: 3]
+        let localStream = null;[cite: 3]
+        let predictInterval = null; // ตัวแปรสำหรับคุมการรันทุกๆ 3 วินาที
 
+        // ฟังก์ชันโหลดโมเดล AI[cite: 3]
+        async function loadModel() {
+            if (model) return;[cite: 3]
+            updateStatus("loading", "กำลังเรียกน้อง AI... 🧠✨");
             try {
-                model = await tmImage.load(modelURL, metadataURL);[cite: 2]
-                maxPredictions = model.getTotalClasses();[cite: 2]
-
-                const flip = true;[cite: 2]
-                webcam = new tmImage.Webcam(340, 255, flip);[cite: 2]
-                await webcam.setup();[cite: 2]
-                await webcam.play();[cite: 2]
-                
-                // วนลูปวิดีโอจากกล้องแบบ Realtime เพื่อไม่ให้ภาพกระตุกค้าง
-                window.requestAnimationFrame(loop);[cite: 2]
-
-                document.getElementById("webcam-placeholder").remove();
-                document.getElementById("webcam-container").appendChild(webcam.canvas);[cite: 2]
-                
-                // อัปเดตสถานะความกวน
-                document.getElementById("status-dot").classList.remove("bg-slate-300");
-                document.getElementById("status-dot").classList.add("bg-[#FF69B4]");
-                document.getElementById("status-text").innerText = "สแกนภาพทุกๆ 3 วินาทีอยู่จ้า! ⚡";
-                document.getElementById("start-btn").classList.add("hidden"); 
-
-                // สร้างดีไซน์ Progress Bar แบบก้อนเมฆกลมมน
-                labelContainer = document.getElementById("label-container");[cite: 2]
-                labelContainer.innerHTML = ""; 
-                for (let i = 0; i < maxPredictions; i++) {[cite: 2]
-                    const labelWrapper = document.createElement("div");
-                    labelWrapper.className = "space-y-1.5 p-2 bg-[#FFF5F7] rounded-xl border border-[#FFE4E1]";
-                    labelWrapper.innerHTML = `
-                        <div class="flex justify-between text-sm font-bold">
-                            <span class="text-[#DB7093] class-name">กำลังคำนวณ...</span>
-                            <span class="text-[#FF69B4] class-percent">0%</span>
-                        </div>
-                        <div class="w-full bg-[#E6E6FA] rounded-full h-3.5 overflow-hidden p-[2px]">
-                            <div class="bg-[#FFB6C1] h-2.5 rounded-full progress-bar transition-all duration-700" style="width: 0%"></div>
-                        </div>
-                    `;
-                    labelContainer.appendChild(labelWrapper);[cite: 2]
-                }
-
-                // สั่งวิเคราะห์รอบแรกทันที
-                predict();
-                
-                // ตั้งเวลาล็อกไว้ที่ 3 วินาที (3000ms) สำหรับการส่งไปประมวลผลที่โมเดล
-                setInterval(predict, 3000);
-
-            } catch (error) {
-                console.error(error);
-                alert("อุ๊ย! มีปัญหาในการเปิดกล้องหรือโหลดโมเดลจ้า");
-                document.getElementById("start-btn").disabled = false;
-                document.getElementById("status-text").innerText = "สถานะ: พังซะแล้ว 😿";
+                model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");[cite: 3]
+                maxPredictions = model.getTotalClasses();[cite: 3]
+                updateStatus("ready", "น้อน AI พร้อมทำงานแล้วจ้า!");
+            } catch (e) {
+                updateStatus("error", "โหลดน้อง AI ไม่สำเร็จง่ะ");
+                throw e;[cite: 3]
             }
         }
 
-        async function loop() {[cite: 2]
-            webcam.update(); // อัปเดตหน้ากล้องสตรีมสดอย่างต่อเนื่อง[cite: 2]
-            window.requestAnimationFrame(loop);[cite: 2]
+        // ฟังก์ชันเปิดกล้อง[cite: 3]
+        async function startCamera() {
+            if (isCameraRunning) return;[cite: 3]
+
+            try {
+                document.getElementById("image-preview").classList.add("hidden");[cite: 3]
+                await loadModel();[cite: 3]
+
+                const constraints = { video: { width: 640, height: 480, facingMode: "user" }, audio: false };[cite: 3]
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);[cite: 3]
+                
+                videoElement.srcObject = localStream;[cite: 3]
+                videoElement.classList.remove("hidden");[cite: 3]
+                document.getElementById("camera-placeholder").classList.add("hidden");[cite: 3]
+
+                setupUI();[cite: 3]
+                isCameraRunning = true;[cite: 3]
+                updateStatus("active", "กล้องจ้องมองทุกๆ 3 วิ 👀");
+                
+                // อัปเดตเฟรมกล้องวิดีโอแบบสดๆ เพื่อให้ภาพลื่นไหลไม่ค้าง
+                window.requestAnimationFrame(loop);[cite: 3]
+
+                // เคลียร์ Interval เก่าหากมี
+                if (predictInterval) clearInterval(predictInterval);
+                
+                // สั่งวิเคราะห์ภาพจากกล้องรอบแรกทันที
+                predictVideo();
+                // ล็อกกลไกการทำนายผลโมเดลให้ทำงาน "ทุกๆ 3 วินาที" (3000ms) ตามโจทย์!
+                predictInterval = setInterval(predictVideo, 3000);
+
+            } catch (error) {
+                console.error("Camera Error:", error);[cite: 3]
+                alert("อุ๊ย! เปิดกล้องไม่ได้ ลองเช็คสิทธิ์การเข้าถึงกล้องดูก่อนน้า");
+                updateStatus("error", "กล้องถูกปฏิเสธสิทธิ์ 😿");
+            }
         }
 
-        // ฟังก์ชันคำนวณวิเคราะห์ภาพที่จะทำงานทุกๆ 3 วินาที
-        async function predict() {[cite: 2]
-            if (!model || !webcam) return;
-            
-            const prediction = await model.predict(webcam.canvas);[cite: 2]
-            
-            for (let i = 0; i < maxPredictions; i++) {[cite: 2]
-                const className = prediction[i].className;[cite: 2]
-                const probability = prediction[i].probability;[cite: 2]
-                const percentage = (probability * 100).toFixed(0) + "%";
-                
-                const labelItems = labelContainer.childNodes[i];
-                labelItems.querySelector(".class-name").innerText = "🧸 " + className;
-                labelItems.querySelector(".class-percent").innerText = percentage;
-                
-                const progressBar = labelItems.querySelector(".progress-bar");
-                progressBar.style.width = percentage;
+        // ฟังก์ชันกรณีเลือกอัปโหลดรูปภาพ[cite: 3]
+        async function handleImageUpload(event) {
+            const file = event.target.files[0];[cite: 3]
+            if (!file) return;[cite: 3]
 
-                // เปลี่ยนสีพาสเทลตามระดับความมั่นใจของ AI 
-                if (probability > 0.7) {
-                    // มั่นใจสุดๆ: สีฟ้านมสดชื่น
-                    progressBar.className = "bg-[#87CEFA] h-2.5 rounded-full progress-bar transition-all duration-700";
-                } else if (probability > 0.3) {
-                    // มั่นใจปานกลาง: สีชมพูนมเย็น
-                    progressBar.className = "bg-[#FFB6C1] h-2.5 rounded-full progress-bar transition-all duration-700";
+            // เคลียร์ตัวจับเวลา 3 วิของกล้องออกไปก่อน
+            if (predictInterval) {
+                clearInterval(predictInterval);
+                predictInterval = null;
+            }
+
+            // ปิดกล้องถ้าเปิดค้างไว้[cite: 3]
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());[cite: 3]
+                isCameraRunning = false;[cite: 3]
+                videoElement.classList.add("hidden");[cite: 3]
+            }
+
+            try {
+                await loadModel();[cite: 3]
+                
+                document.getElementById("camera-placeholder").classList.add("hidden");[cite: 3]
+                const imgPreview = document.getElementById("image-preview");[cite: 3]
+                imgPreview.src = URL.createObjectURL(file);[cite: 3]
+                imgPreview.classList.remove("hidden");[cite: 3]
+
+                setupUI();[cite: 3]
+                updateStatus("active", "กำลังสแกนไฟล์ภาพจ้า 🎯");
+
+                imgPreview.onload = async function() {[cite: 3]
+                    const prediction = await model.predict(imgPreview);[cite: 3]
+                    renderPredictions(prediction);[cite: 3]
+                };
+            } catch (error) {
+                alert("ไม่สามารถประมวลผลภาพถ่ายได้จ้า");
+            }
+        }
+
+        // วนลูปสตรีมหน้ากล้องสดให้ไหลลื่น[cite: 3]
+        async function loop() {
+            if (!isCameraRunning) return;[cite: 3]
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {[cite: 3]
+                videoElement.update ? videoElement.update() : null; // อัปเดตวิดีโอสตรีม
+            }
+            window.requestAnimationFrame(loop);[cite: 3]
+        }
+
+        // แยกฟังก์ชันดึงค่าจากกล้องไปประมวลผลทุกๆ 3 วินาที
+        async function predictVideo() {
+            if (!isCameraRunning) return;
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                const prediction = await model.predict(videoElement);
+                renderPredictions(prediction);
+            }
+        }
+
+        // สร้างแถบ UI แสดงผลแบบพาสเทลน่ารักๆ[cite: 3]
+        function setupUI() {
+            const labelContainer = document.getElementById("label-container");[cite: 3]
+            labelContainer.innerHTML = "";[cite: 3]
+            for (let i = 0; i < maxPredictions; i++) {[cite: 3]
+                const row = document.createElement("div");[cite: 3]
+                row.className = "bg-[#FFFDFB] border-2 border-[#FFEBD8] rounded-2xl p-4 flex flex-col gap-1.5 shadow-sm";[cite: 3]
+                row.innerHTML = `
+                    <div class="flex justify-between items-center text-sm font-bold">
+                        <span id="label-text-${i}" class="text-[#8E7568]">คำนวณ...</span>
+                        <span id="label-val-${i}" class="text-[#FF8E8E] text-xs bg-[#FFF0F5] border border-[#FFD1DC] px-2.5 py-0.5 rounded-full">0.0%</span>
+                    </div>
+                    <div class="w-full bg-[#EFECE9] rounded-full h-3.5 p-[2px] border border-[#E1DCD6]">
+                        <div id="label-bar-${i}" class="h-full rounded-full bg-[#FFB4B4] transition-all duration-700 ease-out" style="width: 0%"></div>
+                    </div>
+                `;
+                labelContainer.appendChild(row);[cite: 3]
+            }
+        }
+
+        // นำค่าผลลัพธ์ที่ตรวจได้มาพ่นลง UI[cite: 3]
+        function renderPredictions(prediction) {
+            for (let i = 0; i < maxPredictions; i++) {[cite: 3]
+                const label = prediction[i].className;[cite: 3]
+                const percentage = (prediction[i].probability * 100).toFixed(1);[cite: 3]
+
+                document.getElementById(`label-text-${i}`).innerText = "🧸 " + label;[cite: 3]
+                document.getElementById(`label-val-${i}`).innerText = `${percentage}%`;[cite: 3]
+                
+                const bar = document.getElementById(`label-bar-${i}`);[cite: 3]
+                bar.style.width = `${percentage}%`;[cite: 3]
+
+                // ปรับเปลี่ยนโทนสีบาร์พาสเทลตามคะแนนความมั่นใจ
+                if (percentage >= 75) {
+                    bar.className = "h-full rounded-full bg-[#99E1D9] shadow-inner"; // มั่นใจมากเป็นสีเขียวมินต์
+                } else if (percentage >= 35) {
+                    bar.className = "h-full rounded-full bg-[#FFCAD4] shadow-inner"; // มั่นใจกลางๆ เป็นสีชมพูนม
                 } else {
-                    // มั่นใจน้อย: สีเหลืองครีมพุดดิ้ง
-                    progressBar.className = "bg-[#FFE4B5] h-2.5 rounded-full progress-bar transition-all duration-700";
+                    bar.className = "h-full rounded-full bg-[#D8B4F8] shadow-inner"; // มั่นใจน้อยเป็นสีม่วงลาเวนเดอร์
                 }
+            }
+        }
+
+        // เปลี่ยนสีกระดิ่งและ badge แสดงสถานะตามกิจกรรม[cite: 3]
+        function updateStatus(type, message) {
+            const badge = document.getElementById("status-badge");[cite: 3]
+            const dot = document.getElementById("status-dot");
+            const text = document.getElementById("status-text");[cite: 3]
+            text.innerText = message;[cite: 3]
+            
+            // ล้างอนิเมชั่นเก่าก่อนครอบสีใหม่
+            dot.className = "w-2.5 h-2.5 rounded-full animate-ping ";
+
+            if (type === "loading") {
+                badge.className = "flex items-center gap-2 text-xs font-bold text-amber-600 bg-amber-50 px-4 py-2 rounded-full border-2 border-amber-200";
+                dot.classList.add("bg-amber-400");
+            }
+            if (type === "ready") {
+                badge.className = "flex items-center gap-2 text-xs font-bold text-[#4682B4] bg-[#F0F8FF] px-4 py-2 rounded-full border-2 border-[#B0C4DE]";
+                dot.classList.add("bg-[#87CEFA]");
+            }
+            if (type === "active") {
+                badge.className = "flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-4 py-2 rounded-full border-2 border-emerald-200";
+                dot.classList.add("bg-emerald-400");
+            }
+            if (type === "error") {
+                badge.className = "flex items-center gap-2 text-xs font-bold text-red-500 bg-red-50 px-4 py-2 rounded-full border-2 border-red-200";
+                dot.classList.add("bg-red-400");
             }
         }
     </script>
